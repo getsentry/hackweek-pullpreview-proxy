@@ -55,12 +55,14 @@ def forward(path):
     head_commit = pull_request.head.sha
 
     proxy_args = _generate_proxy_headers(application.config, head_commit)
-    url = u'{}/{}'.format(application.config.get('upstream.host'), path)
+    url = u'{}{}'.format(application.config.get('upstream.host'),
+                         request.full_path)
     response = requests.request(request.method, url, **proxy_args)
 
+    proxy_host = request.host_url.strip('/')
     return Response(
-        response=response.text,
-        headers=_adapt_response_headers(response, request.host_url.strip('/')),
+        response=_adapt_response_body(response, proxy_host),
+        headers=_adapt_response_headers(response, proxy_host),
         status=response.status_code)
 
 
@@ -76,10 +78,19 @@ def _adapt_response_headers(response, proxy_host):
             proxy_host
         )
         headers['Location'] = new_location
-    bucket_host = urlparse(application.config['gcs.bucket_url']).netloc
-    headers['Access-Control-Allow-Origin'] = bucket_host
 
     return headers
+
+
+def _adapt_response_body(response, proxy_host):
+    text_types = ('text/plain', 'text/html', 'application/javascript',
+                  'text/javascript', 'application/json', 'text/css')
+    if response.headers['Content-Type'] not in text_types:
+        return response.text
+
+    return response.text.replace(
+        application.config.get('upstream.host'),
+        proxy_host)
 
 
 def _generate_proxy_headers(config, commit):
@@ -90,13 +101,21 @@ def _generate_proxy_headers(config, commit):
     headers = dict([(key.upper(), value)
                     for key, value in request.headers.items()])
 
-    # Add in the FE-Base header and upstream host
-    headers['X-Sentry-FE-Base'] = config['gcs.bucket_url'] + commit + '/'
     if 'HOST' in headers:
         del headers['HOST']
 
+    # Add in the FE-Base header and upstream host
+    headers['X-Sentry-FE-Base'] = config['gcs.bucket_url'] + commit + '/'
+    headers['Content-Type'] = request.content_type
+
+    data = None
+    if len(request.data):
+        data = request.data
+    elif request.form:
+        data = request.form
+
     return {
         'headers': headers,
-        'data': request.data,
+        'data': data,
         'allow_redirects': False
     }
