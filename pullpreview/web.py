@@ -60,10 +60,22 @@ def forward(path):
     response = requests.request(request.method, url, **proxy_args)
 
     proxy_host = request.host_url.strip('/')
-    return Response(
+    res = Response(
         response=_adapt_response_body(response, proxy_host),
         headers=_adapt_response_headers(response, proxy_host),
         status=response.status_code)
+
+    for cookie in response.cookies:
+        # Intentionally drop the cookie domain.
+        res.set_cookie(
+            key=cookie.name,
+            # Hack to get around doubly quoted values in session cookies
+            value=cookie.value.strip('"'),
+            expires=cookie.expires,
+            path=cookie.path,
+            secure=cookie.secure,
+            httponly=cookie.get_nonstandard_attr('httponly'))
+    return res
 
 
 def _adapt_response_headers(response, proxy_host):
@@ -72,6 +84,8 @@ def _adapt_response_headers(response, proxy_host):
         del headers['Content-Encoding']
     if 'Transfer-Encoding' in headers:
         del headers['Transfer-Encoding']
+    if 'Set-Cookie' in headers:
+        del headers['Set-Cookie']
     if 'Location' in headers:
         new_location = headers['Location'].replace(
             application.config.get('upstream.host'),
@@ -91,6 +105,10 @@ def _adapt_response_body(response, proxy_host):
     return response.text.replace(
         application.config.get('upstream.host'),
         proxy_host)
+
+
+def _adapt_response_cookies(response, proxy_host):
+    return [cookie for cookie in response.cookies]
 
 
 def _generate_proxy_headers(config, commit):
