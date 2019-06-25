@@ -7,7 +7,6 @@ import requests
 
 from flask import Flask, request, Response
 from pullpreview.config import SETTINGS
-from urllib.parse import urlparse
 import pullpreview.github as github
 
 application = Flask("pullpreview")
@@ -105,10 +104,6 @@ def _adapt_response_body(response, proxy_host):
     return response.text.replace(
         application.config.get('upstream.host'),
         proxy_host)
-
-
-def _adapt_response_cookies(response, proxy_host):
-    return [cookie for cookie in response.cookies]
 
 
 def _generate_proxy_headers(config, commit):
