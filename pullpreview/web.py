@@ -98,7 +98,8 @@ def _adapt_response_headers(response, proxy_host):
 def _adapt_response_body(response, proxy_host):
     text_types = ('text/plain', 'text/html', 'application/javascript',
                   'text/javascript', 'application/json', 'text/css')
-    if response.headers['Content-Type'] not in text_types:
+    if ('Content-Type' not in response.headers or
+            response.headers['Content-Type'] not in text_types):
         return response.text
 
     return response.text.replace(
