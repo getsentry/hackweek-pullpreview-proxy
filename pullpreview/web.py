@@ -7,6 +7,7 @@ import requests
 
 from flask import Flask, request, Response
 from pullpreview.config import SETTINGS
+from urllib.parse import urlparse
 import pullpreview.github as github
 
 application = Flask("pullpreview")
@@ -75,6 +76,8 @@ def _adapt_response_headers(response, proxy_host):
             proxy_host
         )
         headers['Location'] = new_location
+    bucket_host = urlparse(application.config['gcs.bucket_url']).netloc
+    headers['Access-Control-Allow-Origin'] = bucket_host
 
     return headers
 
