@@ -13,7 +13,7 @@ header.
 Installation
 ============
 
-::
+.. code-block:: bash
     mkvirtualenv pullpreview
     pip install -e .
 
